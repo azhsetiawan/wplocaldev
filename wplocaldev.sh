@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # This is installation script for WordPress development on localhost 
 # 
@@ -14,20 +14,28 @@
 if [ $# -lt 1 ]; then
   echo
   echo "Please type arguments"
-  echo "Usage: $0 project (optional)dbpass (optional)arg3"
+  echo "Usage: $0 project (optional)dbpass"
   echo
   exit
 fi
 
 CHECK_OS="$(uname -s)"
-
 PROJECT_NAME="$1"
 DBNAME="$1_db"
 DBPASS=${2:-root}
+# WP_CLI_DIR="$HOME/.wp-cli"
 
-# echo "$DBNAME"
-# echo "$DBPASS"
+# Check WP-CLI
+if [ ! -z "$(command -v wp)" ]; then
+  wp --info | grep 'WP-CLI version'
+  CHECK_WP_CLI=true
+else
+  echo 'WP-CLI is not installed'
+  echo 'This script requires WP-CLI for running'
+  exit 1
+fi
 
+# Choose url for project
 read -p "Are you using http://localhost/$1 as url? [y/n] " URL1
 
 if [ "$URL1" == "y" ]; then
@@ -40,47 +48,26 @@ else
   fi
 fi
 
-# echo "$PROJECT_URL"
+# Timer
+SECONDS=0
 
-
-if [ ! -z "$(which apache2ctl)" ]; then
-  DOCROOT="$( apache2ctl -S | grep 'Main DocumentRoot: ' | tr -d '"' | awk ' { print $3 } ' )"
-elif [ ! -z "$(which apachectl)" ]; then
-  DOCROOT="$( apachectl -S | grep 'Main DocumentRoot: ' | tr -d '"' | awk ' { print $3 } ' )"
-elif [ ! -z "$(which httpd)" ]; then
-  DOCROOT="$( httpd -S | grep 'Main DocumentRoot: ' | tr -d '"' | awk ' { print $3 } ' )"
+# Check Apache root dir
+if [ ! -z "$(command -v apache2ctl)" ]; then
+  DOCROOT="$( apache2ctl -S | grep "Main DocumentRoot" | cut -d\  -f3 | tr -d '"' )"
+elif [ ! -z "$(command -v apachectl)" ]; then
+  DOCROOT="$( apachectl -S | grep "Main DocumentRoot" | cut -d\  -f3 | tr -d '"' )"
+elif [ ! -z "$(command -v httpd)" ]; then
+  DOCROOT="$( httpd -S | grep "Main DocumentRoot" | cut -d\  -f3 | tr -d '"' )"
 fi
 
 PROJECT_DIR="$DOCROOT/$1"
 
-# echo "$PROJECT_DIR"
-
-# MY_PARAM=${1:-default}
-
-WP_CLI_DIR="$HOME/.wp-cli"
-
-# echo "$CHECK_OS"
-
-# Check WP-CLI
-if [ ! -z "$(which wp)" ]; then
-  echo 'WP-CLI installed'
-
-  # mkdir -p "$WP_CLI_DIR"
-
-  CHECK_WP_CLI="true"
-else
-  echo 'WP-CLI is not installed'
-  echo 'This script requires WP-CLI for running'
-  exit 1
-fi
-
-# echo "$CHECK_WP_CLI"
-
-if [ "$CHECK_WP_CLI" == "true" ]; then
+# Brace yourself, WordPress is installing
+if [ "$CHECK_WP_CLI" ]; then
 
   mkdir -p "$PROJECT_DIR"
 
-  cd "$PROJECT_DIR"
+  cd "$PROJECT_DIR" || { echo "Cannot open directory. Aborting."; exit 1; }
 
   wp core download
 
@@ -88,20 +75,20 @@ if [ "$CHECK_WP_CLI" == "true" ]; then
 
   wp db create 
 
-  wp core install --url="$PROJECT_URL" --title="Test WPLOCALDEV" --admin_user=admin --admin_password="admin" --admin_email=admin@email.com 
+  wp core install --url="$PROJECT_URL" --title="$PROJECT_NAME" --admin_user=admin --admin_password="admin" --admin_email=admin@email.com 
 
   # Delete plugin: hello dolly
   wp plugin delete hello
 
 fi
 
+echo -e "\033[0;32m$SECONDS seconds\033[0m"
 
+# Open project in OS default browser
+case "$CHECK_OS" in
+  Linux ) xdg-open "$PROJECT_URL" ;;
+  Darwin ) open "$PROJECT_URL" ;;
+  * ) echo "Your OS is not supported yet, sorry!" ;;
+esac
 
-
-if [ "$CHECK_OS" == "Linux" ]; then
-  # echo 'Linux'
-  xdg-open "$PROJECT_URL"
-elif [ "$CHECK_OS" == "Darwin" ]; then
-  # echo 'Darwin'
-  open "$PROJECT_URL"
-fi
+exit 1
