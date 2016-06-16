@@ -80,6 +80,12 @@ if [ "$CHECK_WP_CLI" ]; then
   # Delete plugin: hello dolly
   wp plugin delete hello
 
+  # Delete theme: Twenty Fourteen
+  wp theme delete twentyfourteen
+
+  # Install plugin
+  wp plugin install wordpress-importer --activate
+
 fi
 
 echo -e "\033[0;32m$SECONDS seconds\033[0m"
